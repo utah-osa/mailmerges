@@ -1,0 +1,194 @@
+---
+geometry: paperheight=11in,paperwidth=8.5in,margin=0.5in
+output:
+  pdf_document: 
+    keep_tex: true
+    includes:
+      in_header: columns.tex
+  html_document: default
+always_allow_html: true
+urlcolor: blue
+params:
+    miss_exp: report_miss_exp
+    miss_rev: report_miss_rev
+    miss_pay: report_miss_pay
+    miss_lg: report_miss_lg
+    miss_dandi: report_miss_dandi
+    entity_name: report_entity_name
+    report_types: report_types_p
+---
+\pagenumbering{gobble}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = FALSE)
+```
+
+```{r}
+library(stringi)
+library(magrittr)
+```
+
+
+```{r out.width = "550px", out.align="center"}
+# if (params$report_type=="60day_notice"){
+#   knitr::include_graphics("00aa_postcard_60day_transparency_2.png")
+# } else if (params$report_type=="10day_notice"){
+#   knitr::include_graphics("00aa_10day_notice.png")
+# } else if (params$report_type=="hold_notice"){
+#   knitr::include_graphics("00aa_postcard_hold_notice.png")
+# } else {
+  knitr::include_graphics("00aa_10day_notice.png")
+# }
+
+```
+
+### \hfill __`r params$entity_name`__ | `r Sys.Date()`
+
+The **`r params$entity_name`**. has not submitted required 2022 budget. The budget is due to our office no later than 30 days after adoption and must be adopted prior to the beginning of your fiscal/calendar year.  Because our office has not received your budget we are unable to determine that it has been properly adopted.
+
+This letter serves as notice of our intent to issue an order to suspend all disbursements by your entity in accordance with **Utah Code 67-3-3 in 10 business days.**  Upon issuance of this order, any disbursement made by your entity will be illegal.
+
+Please submit the 2022 approved budget to reporting.auditor.utah.gov \underline{within 10 business days of the date of this letter.}
+
+
+```{r, comment=NA, results='asis'}
+if ('transparency' %in% params$report_types){
+  "<p>&nbsp;</p> \\textbf{\\underline{ State Finance Transparency Reports}}" %>%
+  cat()
+}
+```
+
+:::::: {.cols data-latex=""}
+
+::: {.col data-latex="{0.30\textwidth}"}
+
+```{r, comment=NA, results='asis'}
+if ('transparency' %in% params$report_types){
+  "\\textbf{Missing Expenditures}" %>%
+  cat()
+}
+```
+<!-- # ```{r, comment=NA, results='asis', fig.align='center'} -->
+<!-- # params$miss_rev%>% -->
+<!-- #   stri_split_regex(", ") %>% -->
+<!-- #   unlist() %>% -->
+<!-- #   paste0("* ",.,"\n") %>% -->
+<!-- #   cat() -->
+<!-- # ``` -->
+<!-- # } -->
+
+```{r, comment=NA, results='asis'}
+if ('transparency' %in% params$report_types){
+    params$miss_exp %>%
+  stri_split_regex(", ") %>%
+  unlist() %>%
+  paste0("* ",.,"\n") %>%
+  cat()
+}
+
+```
+:::
+
+::: {.col data-latex="{0.05\textwidth}"}
+\ 
+<!-- an empty Div (with a white space), serving as
+a column separator -->
+:::
+
+::: {.col data-latex="{0.30\textwidth}"}
+```{r, comment=NA, results='asis'}
+if ('transparency' %in% params$report_types){
+  "\\textbf{Missing Revenues}" %>%
+  cat()
+}
+```
+
+```{r, comment=NA, results='asis', fig.align='center'}
+if ('transparency' %in% params$report_types){
+params$miss_rev%>%
+  stri_split_regex(", ") %>%
+  unlist() %>%
+  paste0("* ",.,"\n") %>%
+  cat()
+}
+```
+:::
+
+::: {.col data-latex="{0.05\textwidth}"}
+\ 
+<!-- an empty Div (with a white space), serving as
+a column separator -->
+:::
+
+::: {.col data-latex="{0.30\textwidth}"}
+```{r, comment=NA, results='asis'}
+if ('transparency' %in% params$report_types){
+  "\\textbf{Missing Payroll}" %>%
+  cat()
+}
+```
+
+```{r, comment=NA, results='asis'}
+if ('transparency' %in% params$report_types){
+params$miss_pay%>%
+  stri_split_regex(", ") %>%
+  unlist() %>%
+  paste0("* ",.,"\n") %>%
+  cat()
+}
+```
+:::
+
+::::::
+
+```{r, comment=NA, results='asis'}
+if ('auditor' %in% params$report_types){
+  "<p>&nbsp;</p> \\textbf{\\underline{ Local Government Auditor Reports}}" %>%
+  cat()
+}
+```
+
+
+```{r, comment=NA, results='asis'}
+if ('auditor' %in% params$report_types){
+params$miss_lg%>%
+  stri_split_regex(", ") %>%
+  unlist() %>%
+  paste0("* ",.,"\n") %>%
+  cat()
+}
+```
+
+
+
+
+```{r, comment=NA, results='asis'}
+if ('treasurer' %in% params$report_types){
+  "<p>&nbsp;</p> \\textbf{\\underline{ State Treasurer Deposity and Investment Reports}}" %>%
+  cat()
+}
+```
+
+```{r, comment=NA, results='asis'}
+if ('treasurer' %in% params$report_types){
+params$miss_dandi%>%
+  stri_split_regex(", ") %>%
+  unlist() %>%
+  paste0("* ",.,"\n") %>%
+  cat()
+}
+```
+
+
+
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+We appreciate your dedicated service to your community and the service of your personnel.  Please contact us if you have any questions.
+
+Sincerely,
+
+<p>&nbsp;</p>
+The Local Government Team
+Office of the State Auditor
+801-538-1025
