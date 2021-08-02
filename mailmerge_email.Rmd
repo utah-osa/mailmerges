@@ -15,41 +15,37 @@ library(magrittr)
 library(stringi)
 library(salesforcer)
 library(dplyr)
+library(purrr)
 ```
-
-```{r}
-notice_type  <- 
-  #"60_day_notice"
-  "hold_or_suspend"
-
-last_report_date <- "2020-11-16"
-```
-
 
 ## Connect to Salesforce
 ```{r}
 sf = sf_auth(
   username='alexnielson@utah.gov', 
-  password='Muckdweller2020*', 
-  security_token='aDpHQzQd4qIVsGxM6fgh3RId')
+  password='Muckdweller2020!', 
+  security_token='gpnwuhhz9oiXX4x91CPBBpqK')
 ```
 
 
 # Functions 
 
-<!-- # ```{r} -->
-<!-- # create_file_names <- function(entity_name){ -->
-<!-- #   entity_name %>% -->
-<!-- #     str_to_lower() %>% -->
-<!-- #     str_replace_all("[[:punct:]]","") %>%  -->
-<!-- #     str_replace_all(" +","_") %>%  -->
-<!-- #     paste0(.,".pdf") -->
-<!-- # } -->
-<!-- # ``` -->
 
+global objects
 ```{r}
 alex_mon_names <<- month.abb %>% stri_trans_toupper()
+```
 
+```{r}
+create_email_pdf_file_name <- function(entity_name_p){
+  entity_name_p %>% 
+    stri_trans_tolower() %>%
+    stri_replace_all_regex("[[:punct:]]","") %>% 
+    stri_replace_all_regex(" +","_") %>% 
+    paste0(.,".pdf")
+}
+```
+
+```{r}
 comma_sep_to_ordered_list <- function(comma_str){
   
   if (is.null(comma_str) || is.na(comma_str)|| comma_str==""||comma_str=="NA"){
@@ -169,26 +165,9 @@ create_email_pdf(    miss_exp_p ="2020 APR-JUN, 2019 JAN-DEC, 2020 APR-JUN, 2019
               report_types_p=c('transparency', 'auditor', 'treasurer'))
 ```
 
-
-```{r}
-create_email_pdf_file_name <- function(entity_name_p){
-  entity_name_p %>% 
-    stri_trans_tolower() %>%
-    stri_replace_all_regex("[[:punct:]]","") %>% 
-    stri_replace_all_regex(" +","_") %>% 
-    paste0(.,".pdf")
-}
-```
-
-
-
 # III.Contact_info
 
-
-
-
 ## query Account object
-
 
 ```{r}
 # Get all possible entities and their billing/shipping information.
@@ -238,27 +217,27 @@ sf_account <- sf_query(temp_soql)%>%
     tax_holding_county_id= Tax_Holding_County__c,
     finet_vendor_code = FINET_Vendor_Code__c,
     fiscal_yr_end = Fiscal_Year_End_New__c
-        )]# %>% 
-    # .[!(sf_name %in% c(
-    #   'Intermountain Power Agency',
-    #   'test city 2',
-    #   'Utah Associated Municipal Power Systems',
-    #   'Utah Municipal Power Agency',
-    #   "My Account",
-    #   "salesforce.com",
-    #   "State of Utah"))
-    #   ] %>% 
-   ####### # .[!(entity_status %in% c("Inactive", "Dissolved"))]# %>% 
-    # .[exprev_start_date < today() || is.na(exprev_start_date)] %>% 
-    # .[,govt_lvl := fifelse( sf_name %in%
-    #       c("State of Utah",
-    #         "Utah System of Higher Education - Student Loan Guarantee Program",
-    #         "Utah System of Higher Education - Student Loan Purchase Program",
-    #         "Utah System of Higher Education - Utah Educational Savings Plan dba my529",
-    #         "Utah System of Higher Education - Utah State Board of Regents"),
-    #       "Monitored State Agency",
-    #       govt_lvl)] #%>% 
-    # .[govt_lvl != "State of Utah (agencies/depts/comp units/ etc.)"]
+        )] %>% 
+   # .[!(sf_name %in% c(
+   #   'Intermountain Power Agency',
+   #   'test city 2',
+   #   'Utah Associated Municipal Power Systems',
+   #   'Utah Municipal Power Agency',
+   #   "My Account",
+   #   "salesforce.com",
+   #   "State of Utah"))
+   #   ] %>%
+   .[!(entity_status %in% c("Inactive", "Dissolved"))] #%>%
+   # .[exprev_start_date < today() || is.na(exprev_start_date)] #%>%
+   # .[,govt_lvl := fifelse( sf_name %in%
+   #       c("State of Utah",
+   #         "Utah System of Higher Education - Student Loan Guarantee Program",
+   #         "Utah System of Higher Education - Student Loan Purchase Program",
+   #         "Utah System of Higher Education - Utah Educational Savings Plan dba my529",
+   #         "Utah System of Higher Education - Utah State Board of Regents"),
+   #       "Monitored State Agency",
+   #       govt_lvl)] #%>%
+   # .[govt_lvl != "State of Utah (agencies/depts/comp units/ etc.)"]
     
 
 tax_holding_entity <- sf_account[,.(tax_holding_county_id = sf_id,
@@ -306,7 +285,6 @@ sf_account <- sf_account[, `:=`(
 
 
 ### Query the contact object
-get the chief administrator officers information.
 ```{r}
 temp_soql <- paste0(" 
           SELECT 
@@ -337,8 +315,12 @@ sf_cao <- sf_query(temp_soql)%>%
 contact_info <- merge(sf_account, sf_cao, all.x=T, by="sf_id")
 ```
 
+# Get Reports
 
-# Tran Report
+## Tran Report
+
+get the most recent compliance report, not the most recent compliance report record. If we update someone not on a compliance report, they will get the most recent created date, so getting about 500 will ensure you get the most recent compliance report.
+
 ```{r}
 temp_soql <- paste0("
                     SELECT CreatedDate
@@ -369,21 +351,22 @@ sf_trans_report <- sf_query(temp_soql)%>%
         miss_exp     = Expenditure_Problem__c,
         miss_rev     = Revenue_Problem__c,
         miss_pay     = Wage_Problem__c)]
-
-
-# report year ------------------------------------------------------------------
-
-temp_soql <- paste0(" SELECT  Name,  Id  FROM Report_Year__c
-                      WHERE IsDeleted = FALSE  AND (Delinquent_Reports__c > 0  OR Delinquent_Budget__c > 0 OR Action_Required_Reports__c > 0)")
-# temp_soql <- paste0(" SELECT  Name,  Id  FROM Report_Year__c
-#                       WHERE IsDeleted = FALSE ")
-sf_report_year <- sf_query(temp_soql)%>% as.data.table() %>% .[,.(report_year=Name,
-                                                                  report_status=Id)]
-
 ```
 
 
-# LG REPORT
+## LG REPORT
+
+```{r}
+temp_soql <- paste0(" SELECT  Name,  Id  FROM Report_Year__c
+                      WHERE IsDeleted = FALSE  AND (Delinquent_Reports__c > 0  OR Delinquent_Budget__c > 0 OR Action_Required_Reports__c > 0)")
+
+sf_report_year <- sf_query(temp_soql) %>% 
+  as.data.table() %>%
+  .[,.(report_year=Name,
+       report_status=Id)]
+```
+
+
 ```{r}
 temp_soql <- paste0(" SELECT Account__c,
                             Delinquent__c,
@@ -394,6 +377,7 @@ temp_soql <- paste0(" SELECT Account__c,
                       FROM Reports__c
                       WHERE Status__c IN ('Action Required', 'Delinquent') OR Delinquent__c = TRUE
                     ")
+
 sf_lg_report <- sf_query(temp_soql)%>% as.data.table() %>% 
   .[,.(sf_id = Account__c,
        report_type = Report_Type__c,
@@ -422,7 +406,7 @@ sf_lg_report <-  sf_lg_report[,.(miss_lg = missing_report %>% paste0(collapse=",
     ]
 ```
 
-# DANDI
+## D AND I
 ```{r}
 temp_soql <- paste0(" 
           SELECT 
@@ -516,7 +500,21 @@ full_compliance_object <- merge(sf_trans_report, sf_account, by="sf_id", all.x=F
 
 ```{r}
 full_compliance_object <- full_compliance_object[,`:=`(file_name = sf_name %>% map_chr(create_email_pdf_file_name))] %>%
-  .[miss_rev!="NA" | miss_exp!="NA" | miss_pay!="NA" | miss_lg!="NA" | miss_dandi!="NA"]
+  .[miss_rev!="NA" | miss_exp!="NA" | miss_pay!="NA" | miss_lg!="NA" | miss_dandi!="NA"] %>% 
+  .[!(govt_lvl %in% c("Non Profits", "CPA Firm", "Health Provider"))]
+```
+
+```{r}
+# test <- full_compliance_object[(miss_rev %>% stri_detect_regex("JUN") & miss_rev %>% stri_detect_regex("2021")) |
+                                 # (miss_exp %>% stri_detect_regex("JUN") & miss_exp %>% stri_detect_regex("2021")) ]
+```
+
+
+# Execute Mail Merge 
+
+```{r}
+# full_compliance_object$report_types_p <- rep(list(c('transparency', 'auditor', 'treasurer')),616)
+
 ```
 
 
@@ -528,29 +526,29 @@ pwalk(list(miss_exp_p=full_compliance_object$miss_exp,
               miss_lg_p = full_compliance_object$miss_lg,
               miss_dandi_p = full_compliance_object$miss_dandi,
               entity_name_p = full_compliance_object$sf_name,
-              file_dir_p ="D:/rprojects/compliance-report/mm/email",
-              file_name_p = full_compliance_object$file_name,
-              report_type_p="60day_notice"),
+              file_dir_p="D:/rprojects/compliance-report/mm/email",
+              file_name_p=full_compliance_object$file_name,
+              report_type_p="mm_email_template_60day_notice.Rmd"#,
+              #report_types_p=full_compliance_object$report_types_p
+           ),
       create_email_pdf)
+
 email_building_end <- Sys.time()
 ```
 
 
-# Now Upload to google drive
+# Upload mailmerges to google drive
 
+Auth
 ```{r}
 library(googledrive)
 drive_auth()
 ```
 
+Create a folder for today's date
 ```{r}
-
-```
-
-
-```{r}
-
-gd_folder <- Sys.Date() %>% stri_replace_all_regex("-","_") %>% paste0("mm_",.) %>%  drive_mkdir()
+gd_folder_name <- Sys.Date() %>% stri_replace_all_regex("-","_") %>% paste0("mm_",.) 
+gd_folder <- gd_folder_name %>%  drive_mkdir()
 ```
 
 ```{r}
@@ -566,7 +564,7 @@ for (file_name_t in full_compliance_object$file_name){
                path=gd_folder,
                overwrite=T)
   
-  temp_drive_object <-  drive_get(paste0("mm_test_2021_06_22","/",file_name_t))
+  temp_drive_object <-  drive_get(paste0(gd_folder_name,"/",file_name_t))
   
   temp_dt <- data.table(file_name = file_name_t, id = temp_drive_object$id )
   
@@ -577,7 +575,7 @@ for (file_name_t in full_compliance_object$file_name){
 
 ```{r}
 mm_final <- full_compliance_object %>%
-  merge(contact_info, all.x=T, all.y=F, by="sf_id")%>%
+  merge(contact_info, all.x=T, all.y=F, by="sf_id") %>% 
   merge(filename_id_dict,all.x=T, all.y=F, by="file_name") %>% 
   .[,.(
     sf_id,
@@ -588,6 +586,11 @@ mm_final <- full_compliance_object %>%
     email, 
     role,
     is_primary,
+    
+    street=street.x ,
+    city=city.x ,
+    state=state.x, 
+    postal_code=postal_code.x,
     
     miss_lg= ifelse(miss_lg=="NA", NA, miss_lg) ,
     miss_dandi = ifelse(miss_dandi=="NA", NA, miss_dandi),
@@ -603,6 +606,21 @@ mm_final <- full_compliance_object %>%
 
 ```{r}
 mm_final %>% fwrite(paste0(Sys.Date(),"-mm_email.csv"))
+```
+
+
+Which entities are missing emails for all contacts?
+```{r}
+test <- mm_final[,`:=`(
+  num_emails = fifelse(is.na(email),0,1)
+)] %>% 
+  .[,.(sum_num_emails=sum(num_emails)),by=c("sf_id","sf_name")] %>% 
+  .[order(sum_num_emails)] %>% 
+  .[sum_num_emails==0]
+```
+
+```{r}
+test %>% fwrite(paste0(Sys.Date(),"-mm_missing_email.csv"))
 ```
 
 
